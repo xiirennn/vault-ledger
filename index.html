@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Vault Ledger — a private, encrypted expense tracker that syncs through your own GitHub repo.">
+<title>Vault Ledger — Encrypted Expense Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./src/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23050810'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%2334d399' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%2334d399'/%3E%3C/svg%3E">
+</head>
+<body>
+
+<!-- ============ LOCK / LOGIN / SETUP SCREEN ============ -->
+<div id="lock-screen" class="lock-screen">
+  <div class="lock-panel" role="dialog" aria-labelledby="lock-title">
+
+    <!-- Login view (also the entry point for new vaults) -->
+    <div id="view-unlock">
+      <div class="lock-brand">
+        <span class="radar-logo" aria-hidden="true"><span class="radar-dot"></span></span>
+        <span class="lock-title" id="lock-title">VAULT LEDGER</span>
+      </div>
+      <p class="lock-sub">ONE PASSWORD · ANY DEVICE · END-TO-END ENCRYPTED</p>
+
+      <form id="unlock-form" autocomplete="off">
+        <label class="field-label" for="unlock-password">PASSWORD</label>
+        <input id="unlock-password" type="password" class="field" required autocomplete="current-password" placeholder="••••••••">
+        <p id="unlock-error" class="field-error" role="alert" hidden></p>
+        <p class="field-hint">Your password finds your vault. A password that has never been used creates a new one.</p>
+        <button type="submit" class="btn btn-primary btn-block" id="unlock-btn">OPEN VAULT</button>
+      </form>
+      <button id="show-recovery" class="btn-link" type="button">Unlock with recovery key instead</button>
+    </div>
+
+    <!-- Recovery-key unlock view -->
+    <div id="view-recovery" hidden>
+      <div class="lock-brand">
+        <span class="radar-logo" aria-hidden="true"><span class="radar-dot"></span></span>
+        <span class="lock-title">RECOVERY ACCESS</span>
+      </div>
+      <p class="lock-sub">ENTER YOUR 32-CHARACTER RECOVERY KEY</p>
+      <form id="recovery-form" autocomplete="off">
+        <label class="field-label" for="recovery-key">RECOVERY KEY</label>
+        <input id="recovery-key" type="text" class="field field-mono" required spellcheck="false" placeholder="xxxx-xxxx-xxxx-xxxx-…">
+        <p id="recovery-error" class="field-error" role="alert" hidden>Recovery key not recognized.</p>
+        <button type="submit" class="btn btn-primary btn-block">UNLOCK WITH KEY</button>
+      </form>
+      <button id="back-to-password" class="btn-link" type="button">← Back to password</button>
+    </div>
+
+    <!-- New-vault confirmation view -->
+    <div id="view-setup" hidden>
+      <div class="lock-brand">
+        <span class="radar-logo radar-live" aria-hidden="true"><span class="radar-dot"></span></span>
+        <span class="lock-title">CREATE YOUR VAULT</span>
+      </div>
+      <p class="lock-sub">STEP 1 OF 2 · THIS PASSWORD WILL BE YOUR LOGIN</p>
+      <form id="setup-form" autocomplete="off">
+        <label class="field-label" for="setup-password">PASSWORD</label>
+        <input id="setup-password" type="password" class="field" required minlength="10" autocomplete="new-password" placeholder="At least 10 characters">
+        <label class="field-label" for="setup-password2">CONFIRM PASSWORD</label>
+        <input id="setup-password2" type="password" class="field" required autocomplete="new-password" placeholder="Repeat it">
+        <p id="setup-error" class="field-error" role="alert" hidden></p>
+        <p class="field-hint">This password is your only login — the same one opens your vault on every device. There is no reset; the recovery key (next step) is the only backup. Make it long and unique: anyone who guesses it can open your vault.</p>
+        <button type="submit" class="btn btn-primary btn-block">CONTINUE</button>
+      </form>
+      <button id="setup-back" class="btn-link" type="button">← Back</button>
+    </div>
+
+    <!-- Recovery-key reveal view -->
+    <div id="view-reveal" hidden>
+      <div class="lock-brand">
+        <span class="radar-logo radar-warn" aria-hidden="true"><span class="radar-dot"></span></span>
+        <span class="lock-title">SAVE YOUR RECOVERY KEY</span>
+      </div>
+      <p class="lock-sub">STEP 2 OF 2 · SHOWN ONCE, NEVER STORED IN PLAINTEXT</p>
+      <div class="recovery-box">
+        <code id="recovery-display" class="recovery-code"></code>
+        <div class="recovery-actions">
+          <button id="copy-recovery" class="btn btn-ghost" type="button">COPY</button>
+          <button id="download-recovery" class="btn btn-ghost" type="button">DOWNLOAD</button>
+        </div>
+      </div>
+      <p class="field-hint">Write it down or store it somewhere safe. If you forget your password, this key is the only way back into your data.</p>
+      <label class="check-row">
+        <input type="checkbox" id="reveal-confirm">
+        <span>I have saved my recovery key</span>
+      </label>
+      <button id="reveal-done" class="btn btn-primary btn-block" type="button" disabled>OPEN MY VAULT</button>
+    </div>
+
+  </div>
+  <p class="lock-foot">No accounts, no servers of ours. Your encrypted vault syncs through your own GitHub repo.</p>
+</div>
+
+<!-- ============ APP SHELL ============ -->
+<div id="app" hidden>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="radar-logo radar-live" aria-hidden="true"><span class="radar-dot"></span></span>
+        <span class="brand-name">VAULT LEDGER</span>
+      </div>
+      <div class="topbar-right">
+        <span class="status-led" id="sync-led"><span class="led led-on" id="sync-dot" aria-hidden="true"></span><span id="sync-text">SYNCED</span></span>
+        <button id="btn-settings" class="icon-btn" type="button" aria-label="Settings" title="Settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+        <button id="btn-lock" class="btn btn-ghost btn-sm" type="button">LOCK</button>
+      </div>
+    </div>
+    <div id="sync-banner" class="sync-banner" hidden></div>
+  </header>
+
+  <main class="dash">
+
+    <!-- LEFT: budget & balance -->
+    <section class="panel col-budget" aria-labelledby="t-budget">
+      <div class="panel-head">
+        <h2 id="t-budget" class="panel-title">BUDGET</h2>
+        <div class="month-nav">
+          <button id="month-prev" class="icon-btn" type="button" aria-label="Previous month">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <span id="month-label" class="month-label"></span>
+          <button id="month-next" class="icon-btn" type="button" aria-label="Next month">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="stat-block">
+        <span class="stat-label">REMAINING</span>
+        <span id="stat-remaining" class="stat-value stat-big">—</span>
+      </div>
+      <div class="stat-row">
+        <div class="stat-block">
+          <span class="stat-label">SPENT</span>
+          <span id="stat-spent" class="stat-value">—</span>
+        </div>
+        <div class="stat-block">
+          <span class="stat-label">BUDGET</span>
+          <span id="stat-budget" class="stat-value">—</span>
+        </div>
+      </div>
+
+      <div class="meter" role="progressbar" aria-label="Budget used" id="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="meter-fill" id="meter-fill"></div>
+      </div>
+      <p id="meter-caption" class="meter-caption"></p>
+
+      <div class="panel-head sub-head">
+        <h2 class="panel-title">DAILY PACE</h2>
+      </div>
+      <div id="pace-chart" class="pace-chart" role="img" aria-label="Daily spending chart"></div>
+    </section>
+
+    <!-- CENTER: add + list -->
+    <section class="panel col-main" aria-labelledby="t-expenses">
+      <div class="panel-head">
+        <h2 id="t-expenses" class="panel-title">EXPENSES</h2>
+        <span id="expense-count" class="count-badge">0</span>
+      </div>
+
+      <form id="add-form" class="add-form" autocomplete="off">
+        <div class="add-grid">
+          <div class="add-field">
+            <label class="field-label" for="f-amount">AMOUNT</label>
+            <input id="f-amount" class="field" type="number" inputmode="decimal" min="0.01" step="0.01" required placeholder="0.00">
+          </div>
+          <div class="add-field">
+            <label class="field-label" for="f-category">CATEGORY</label>
+            <select id="f-category" class="field" required></select>
+          </div>
+          <div class="add-field">
+            <label class="field-label" for="f-date">DATE</label>
+            <input id="f-date" class="field" type="date" required>
+          </div>
+          <div class="add-field add-field-wide">
+            <label class="field-label" for="f-note">NOTE</label>
+            <input id="f-note" class="field" type="text" maxlength="80" placeholder="What was it?">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">ADD EXPENSE</button>
+      </form>
+
+      <ul id="expense-list" class="expense-list"></ul>
+      <div id="expense-empty" class="empty-state" hidden>
+        <p>NO ENTRIES THIS MONTH</p>
+        <p class="empty-hint">Add your first expense above — it will be encrypted before it's stored or synced.</p>
+      </div>
+    </section>
+
+    <!-- RIGHT: category chart -->
+    <section class="panel col-chart" aria-labelledby="t-chart">
+      <div class="panel-head">
+        <h2 id="t-chart" class="panel-title">BY CATEGORY</h2>
+      </div>
+      <div class="donut-wrap">
+        <svg id="donut" viewBox="0 0 200 200" role="img" aria-label="Spending by category donut chart"></svg>
+        <div class="donut-center">
+          <span class="donut-center-label">TOTAL</span>
+          <span id="donut-total" class="donut-center-value">—</span>
+        </div>
+      </div>
+      <ul id="legend" class="legend"></ul>
+      <div id="chart-empty" class="empty-state" hidden>
+        <p>NO DATA</p>
+        <p class="empty-hint">The chart appears once this month has expenses.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Settings dialog -->
+  <dialog id="settings-dialog" class="dialog">
+    <form id="settings-form" method="dialog" autocomplete="off">
+      <div class="dialog-head">
+        <h2 class="panel-title">SETTINGS</h2>
+        <button id="settings-close" class="icon-btn" type="button" aria-label="Close settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <label class="field-label" for="s-budget">MONTHLY BUDGET</label>
+      <input id="s-budget" class="field" type="number" inputmode="decimal" min="0" step="0.01" required>
+      <label class="field-label" for="s-currency">CURRENCY</label>
+      <select id="s-currency" class="field">
+        <option value="USD">USD — $</option>
+        <option value="EUR">EUR — €</option>
+        <option value="GBP">GBP — £</option>
+        <option value="JPY">JPY — ¥</option>
+        <option value="CNY">CNY — ¥</option>
+        <option value="INR">INR — ₹</option>
+        <option value="KRW">KRW — ₩</option>
+        <option value="CAD">CAD — $</option>
+        <option value="AUD">AUD — $</option>
+      </select>
+      <div class="dialog-actions">
+        <button type="submit" class="btn btn-primary">SAVE</button>
+      </div>
+    </form>
+
+    <div class="sync-settings" id="sync-settings">
+      <h2 class="panel-title sync-title">GITHUB SYNC</h2>
+      <p class="field-hint" id="sync-repo-label"></p>
+      <label class="field-label" for="s-token">SYNC TOKEN (THIS DEVICE)</label>
+      <input id="s-token" class="field field-mono" type="password" spellcheck="false" placeholder="github_pat_…">
+      <p class="field-hint">A fine-grained token with <strong>Contents: Read and write</strong> on your repo. Stored only in this browser. <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Create one</a>.</p>
+      <div class="dialog-actions sync-actions">
+        <button id="token-clear" class="btn btn-ghost" type="button">REMOVE</button>
+        <button id="token-save" class="btn btn-primary" type="button">SAVE TOKEN</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Edit dialog -->
+  <dialog id="edit-dialog" class="dialog">
+    <form id="edit-form" method="dialog" autocomplete="off">
+      <div class="dialog-head">
+        <h2 class="panel-title">EDIT EXPENSE</h2>
+        <button id="edit-close" class="icon-btn" type="button" aria-label="Close editor">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <input type="hidden" id="e-id">
+      <label class="field-label" for="e-amount">AMOUNT</label>
+      <input id="e-amount" class="field" type="number" inputmode="decimal" min="0.01" step="0.01" required>
+      <label class="field-label" for="e-category">CATEGORY</label>
+      <select id="e-category" class="field" required></select>
+      <label class="field-label" for="e-date">DATE</label>
+      <input id="e-date" class="field" type="date" required>
+      <label class="field-label" for="e-note">NOTE</label>
+      <input id="e-note" class="field" type="text" maxlength="80">
+      <div class="dialog-actions">
+        <button type="submit" class="btn btn-primary">SAVE CHANGES</button>
+      </div>
+    </form>
+  </dialog>
+
+</div>
+
+<script type="module" src="./src/app.js"></script>
+</body>
+</html>
