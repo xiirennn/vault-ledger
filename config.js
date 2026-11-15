@@ -6,8 +6,8 @@
    mode until these are set.
    ============================================================ */
 export const SYNC = {
-  owner: "YOUR_GITHUB_USERNAME",
-  repo: "YOUR_REPO_NAME",
+  owner: "xiirennn",
+  repo: "vault-ledger",
   branch: "main",
 };
 
